@@ -53,8 +53,6 @@ class sensors:
             print("Decimal address: ",device," | Hexa address: ",hex(device))
     
     
-    
-
     onewirePin = machine.Pin(15)
     wire = onewire.OneWire(onewirePin)
     ds = ds18x20.DS18X20(wire)
