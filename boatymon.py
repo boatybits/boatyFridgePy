@@ -1,170 +1,141 @@
 from machine import Pin, I2C
-import bme280_float   #https://github.com/robert-hh/BME280
-import ads1x15        #https://github.com/robert-hh/ads1x15
+import bme280_float             #https://github.com/robert-hh/BME280
+import ads1x15                  #https://github.com/robert-hh/ads1x15
 from ina219 import INA219    
-from logging import INFO     #required by ina219
+from logging import INFO        #required by ina219
 import usocket
 import ujson
 import utime
 import machine
 import network
 import onewire, ds18x20
-from machine import UART
 
 
 class sensors:
+    with open("config.py") as json_data_file:
+        conf = ujson.load(json_data_file)
+    
     import utime
-    ssid1 = "openplotter"
-    password1 = "12345678"
-    ssid2 = "padz"
-    password2 = "12348765"
-    led = Pin(2, Pin.OUT)  #set internal pin to LED as an output
-    gpio4 =  Pin(4, Pin.OUT)
-    gpio5 =  Pin(5, Pin.OUT)
-    gpio18 =  Pin(18, Pin.OUT)
-    gpio4.off()
-    gpio5.off()
-    gpio18.off()
-    count = 1
-    
-    
-    nmea_1_in = Pin(13, Pin.IN)
-    
-    nmea_1_out = Pin(12, Pin.OUT)
-    nmea_1_out.off()
-    
-    nmea_2_in = Pin(14, Pin.IN)
+    # ssid1 = "openplotter"
+    # password1 = "12345678"
+    # ssid2 = "padz"
+    # password2 = "12348765"
+    # udpAddr = '10.10.10.1'
+    isRunning = []
+    led = Pin(2, Pin.OUT)           #set internal pin to LED as an output
 
-    nmea_2_out = Pin(27, Pin.OUT)
-    nmea_2_out.off()
     i2c = I2C(scl=Pin(22), sda=Pin(21), freq=10000) # set up i2c, pins 21 & 22
-    udpAddr = '10.10.10.1'
-    
-    
     print('Scan i2c bus...')
     devices = i2c.scan()
-
     if len(devices) == 0:
         print("No i2c device !")
     else:
         print('i2c devices found:',len(devices))
-
         for device in devices:  
             print("Decimal address: ",device," | Hexa address: ",hex(device))
-    
-    
+  
     onewirePin = machine.Pin(15)
     wire = onewire.OneWire(onewirePin)
-    ds = ds18x20.DS18X20(wire)
-#     roms = ds.scan()
-#     if roms ==[]:
-#         roms = 0
-#     print('DS18b20  devices:', roms)
-    
     try:
-        SHUNT_OHMS = 0.06
+        ds = ds18x20.DS18X20(wire)
+        roms = ds.scan()
+       # roms.append(roms[0])
+        if roms ==[]:
+            roms = 0
+        for rom in roms:          
+            print('      DS18b20  devices:', int.from_bytes(rom, 'little'), hex(int.from_bytes(rom, 'little')))
+    except Exception as e:
+        conf['Run_DS18B20']='false'
+        print("      DS18B20 start error - ", e)
+
+#////////////////// INA setup /////////////////////////     
+    try:
+        SHUNT_OHMS = 0.1
         ina = INA219(SHUNT_OHMS, i2c)
         print('INA219 instance created')
     except Exception as e:
-        print( e)
+        print("      INA start error - ", e)
         
     try:
         ina.configure()        # gain defaults to 3.2A. ina219.py line 132
+        print('     INA219 instance configure run')
     except Exception as e:
+        isRunning.append('Run_INA-219')
         print('INA configure failed, possibly not connected. Error=',e)
-    
+            
+#////////////////// BME setup /////////////////////////   
     try:
         bme = bme280_float.BME280(i2c=i2c)
         print('BME started')
     except Exception as e:
+        isRunning.append('Run_BME280')
         print('BME start failed, possibly not connected. Error=',e)
 
-#     uart = UART(1, tx=14, rx=34, timeout=50)
-#     uart.init(baudrate=19200,bits=8,parity=None,stop=1)
-#     uart = machine.UART(uart_num, tx=pin, rx=pin [,args])
-    
-    #ads1115 set up, , 0x48 default, 0x4a->ADDR pin to SDA
+#////////////////// ADS1115 setup /////////////////////
+    #ads1115 set up, , 0x48 default, 0x4a->connect ADDR pin to SDA
     try:
         addr = 0x4a
         gain = 0
         ads1115A = ads1x15.ADS1115(i2c, addr, gain)
-        print("ADS1115 started")
+        print("ADS1115A started")
+    except Exception as e:
+        print('ADS1115A start failed, possibly not connected. Error=',e)
+
+    try:
+        addr = 0x48
+        gain = 0
+        ads1115B = ads1x15.ADS1115(i2c, addr, gain)
+        print("ADS1115B started")
 
     except Exception as e:
-        print('ADS1115 start failed, possibly not connected. Error=',e)
-
-
+        print('ADS1115B start failed, possibly not connected. Error=',e)
+#___________________________________________________________________________________________
+#////////////////// INIT /// /////////////////////////
     def __init__(self):
+        for key in self.conf.keys():
+            print(key, "---", self.conf[key])
+        
         print('new sensors instance created')
-         
+
+    def debugPrint1(self, message):
+        if self.conf['debugPrint1'] == 'True':
+            print(message)
+
     def connectWifi(self):        
         import network
         sta_if = network.WLAN(network.STA_IF)
         print('\n', 'sta_if.active = ', sta_if.active(), '\n')
         sta_if.active(True)
-#         sta_if.ifconfig(('192.168.1.10', '255.255.255.0', '192.168.43.125', '192.168.43.125'))
         print('\n', 'sta_if.active = ', sta_if.active(), '\n')
         networks = sta_if.scan()
+
         if not sta_if.isconnected():
-            print('connecting to network...')
+            print('        connecting to network...')
             
-            print('\n','No. of networks = ', len(networks), '\n')
-            print('networks = ', networks, '\n')
-            if networks !=[]:
-                if networks[0][0] == b'padz': #and networks !==[]:
-                    print('Connecting to padz..')
-                    sta_if.ifconfig(('192.168.43.145', '255.255.255.0', '192.168.43.125', '192.168.43.125'))
-                    sta_if.connect('padz', '12348765')
-                    self.udpAddr = '192.168.43.97'
-                else:
-                    print('No. of networks = ', len(networks))
-                    print('No. of networks = ', networks)
-                    sta_if.connect('openplotter', '12345678')
-                    self.udpAddr = '10.10.10.1'
-                    
+            print('\n','        No. of networks = ', len(networks), '\n')
+            print('        networks = ', networks, '\n')
+            try:
+                sta_if.ifconfig((self.conf['IP_Address'], '255.255.255.0', '10.10.10.1', '10.10.10.1'))
+                sta_if.connect(self.conf['ssid'], self.conf['password'])
+                self.udpAddr = '10.10.10.1'
+            except Exception as e:
+                print('connect wifi failure, error =',e)
+                pass
+                
             counter = 0
             while not sta_if.isconnected():
                 utime.sleep(0.25)
                 print("\r>", counter, end = '')
                 counter += 1
+                self.flashLed()
+                if counter > 100:
+                    machine.reset()
                 pass
-        print('\n', 'network config:',sta_if.isconnected(),'\n', sta_if.ifconfig(), '\n')
+        print('\n', '    CONNECTED!! network config:',sta_if.isconnected(),'\n', sta_if.ifconfig(), '\n')
         
-    def alloff(self):
-        self.led.off()
-        self.gpio4.off()
-        self.gpio5.off()
-        self.gpio18.off()    
-    
     def flashLed(self):
-        
-#         self.led.value(not self.led.value())
-        if self.count ==1:
-            self.alloff()
-            self.led.on()
-#             print("2 on")
-            self.count += 1
-            pass
-        
-        elif self.count ==2:
-            self.alloff()
-            self.count += 1
-#             print("all off")
-            pass
-        
-        elif self.count ==3:
-            self.alloff()
-            self.gpio4.on()
-#             print("4 on")
-            self.count += 1
-            pass
-        
-        elif self.count ==4:
-            self.alloff()
-#             print("all off")
-            self.count = 1
-            
-         
+        self.led.value(not self.led.value())
+    
     def getVoltage(self):
         value=[0,1,2,3]
         voltage = [0,1,2,3]
@@ -174,66 +145,79 @@ class sensors:
             try:
                 value[i] = self.ads1115A.read(4,i)
                 voltage[i] = self.ads1115A.raw_to_v(value[i])
-#                 if i == 1:
-#                     print("Voltage ", i, " = ", voltage[i] * 0.51368)
                 if i == 2:
                     calibration = 6.09
                 elif i == 3:
                     calibration = 6.11
-#                 print("Voltage ", i, " = ", voltage[i])
                 self.insertIntoSigKdata("electrical.ads1115-1." + str(i), voltage[i] * calibration)
                 calibration = 1
             except Exception as e:
                 pass
-#                 print('ADS1115 read failed, Error=',e)         
 
-    def getPressure(self):
-        self.checkConnection()
+        try:
+            calibration = 6.09
+            value = self.ads1115B.read(4, 0, 1)
+            voltage = self.ads1115B.raw_to_v(value)
+            self.insertIntoSigKdata("electrical.ads1115-2.1", voltage * calibration)
+            calibration = 6.09
+            value = self.ads1115B.read(4,2,3)
+            voltage = self.ads1115B.raw_to_v(value)
+            self.insertIntoSigKdata("electrical.ads1115-2.2", voltage * calibration)
+        except Exception as e:
+            pass
+
+    def getPressure(self, destination):
+ 
         try:
             vals = self.bme.read_compensated_data()
         except Exception as e:
+            print('BME failed, possibly not connected. Error=',e)
             pass
-#                 print('BME read failed, Error=',e)
         else:
             temp = vals[0]
             pres = vals[1]
             hum =  vals[2]
-        
-            self.insertIntoSigKdata("environment.inside.humidity", hum)  # insertIntoSigKdata(path, value)
-            self.utime.sleep_ms(100) 
-            self.insertIntoSigKdata("environment.inside.temperature", temp + 273.15)
-            self.utime.sleep_ms(100) 
-            self.insertIntoSigKdata("environment.outside.pressure", pres)
-            self.utime.sleep_ms(100) 
+            if destination == 'signalk':
+                self.insertIntoSigKdata("environment.outside.humidity", hum)  # insertIntoSigKdata(path, value)
+                self.utime.sleep_ms(100) 
+                self.insertIntoSigKdata("environment.outside.temperature", temp + 273.15)
+                self.utime.sleep_ms(100) 
+                self.insertIntoSigKdata("environment.outside.pressure", pres)
+                self.utime.sleep_ms(100)
+            elif destination == 'influxdb':
+                print(' would send to udp here')
         
     def getCurrent(self):
         try:
             self.insertIntoSigKdata("esp.currentSensor.voltage", self.ina.voltage())
-            self.insertIntoSigKdata("esp.currentSensor.current", self.ina.current())
-        except Exception as e:
-#                 print('INA1 read failed, Error=',e)
-            pass
-        else:
-            self.utime.sleep_ms(100) 
+            self.utime.sleep_ms(100)
             self.insertIntoSigKdata("esp.currentSensor.current", self.ina.current())
             self.utime.sleep_ms(100)
+            self.insertIntoSigKdata("esp.currentSensor.power", self.ina.power())
             
+        except Exception as e:
+            print('INA1 read failed, Error=',e)
+            pass
+  
     def getTemp(self):
-        
-        roms = self.ds.scan()
-        if roms ==[]:
-            roms = 0
-        print('DS18b20  devices:', roms)
         try:
             self.ds.convert_temp()
-            for rom in roms:
-                value = self.ds.read_temp(rom)
-                self.insertIntoSigKdata("esp.ds18b20.tempC", value)
-                print("esp.ds18b20.tempC", value)
+            utime.sleep_ms(200)
+            for rom in (self.roms):
+                value = self.ds.read_temp(rom)           
+                if rom == (b'(\x7f@V\x05\x00\x00\xaf'):
+                    path = "esp.propulsion.alternator.temperature"
+                    self.insertIntoSigKdata(path, value + 273.15)
+                elif rom == (b"('\xd4V\x05\x00\x00\x88"):
+                    path = "esp.propulsion.exhaust.temperature"
+                    self.insertIntoSigKdata(path, value + 273.15)
+                elif rom == (b'(a\xdeV\x05\x00\x00\xf2'):
+                    path = "esp.propulsion.head.temperature"
+                    self.insertIntoSigKdata(path, value + 273.15)              
+        except Exception as e:
+            print("DS18B20 error Error=",e)
+            pass
 
-        except:
-            print("DS18B20 error")
-            pass        
  
     def insertIntoSigKdata(self, path, value):        
         _sigKdata = {
@@ -243,65 +227,46 @@ class sensors:
         _sigKdata["updates"][0]["values"].append( {"path":path,
                     "value": value
                     })
-        self.sendToUDP(ujson.dumps(_sigKdata))        
+        self.sendToUDP(ujson.dumps(_sigKdata),'10.10.10.1', self.conf['sigK_udp-port'])      
+        try:
+            self.debugPrint1(_sigKdata)
+        except Exception as e:
+            print("debug print error=",e)
         
-    def sendToUDP(self, dataJson):
-        s = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
-#         s.sendto(dataJ, ('192.168.43.97', 55561)) # send to openplotter SignalK
-#         s.sendto(dataJson, ('10.10.10.1', 55561))
-        s.sendto(dataJson, (self.udpAddr, 55561))
-        s.close()
-        
+    def sendToUDP(self, message, udpAddr, udpPort):
+        try:
+            s = usocket.socket(usocket.AF_INET, usocket.SOCK_DGRAM)
+            s.sendto(message, (udpAddr, int(udpPort)))
+            s.close()
+        except Exception as e:
+            print("UDP sending error=",e)
+            pass
 
-        
+    def str_to_bool(self, s):
+        return str(s).lower() in ("yes", "true", "t", "1")
+    
     def checkConnection(self):
-
         wlan = network.WLAN(network.STA_IF)
         if not wlan.isconnected():
             print('Not connected to wifi, rebooting...')
-            self.connectWifi()
- 
-    def datasend(self):  #which sensors to send, triggered by timer
-        
+            machine.reset()
+
+    def reboot(self):
+        print("..rebooting..")
+        machine.reset()
+            
+    def dataBasesend(self):  #which sensors to send, triggered by timer
         self.flashLed()
         
-#         while self.uart.any() > 0:
-#             myData = self.uart.readline()
-#             try:
-#                 if myData.decode('utf8').split()[0] =="V":
-#                     self.insertIntoSigKdata("vic.electrical.solar.battVolts", int(myData.decode('utf8').split()[1])/1000)
-#             except:
-#                 pass
-#             
-#             try:
-#                 if myData.decode('utf8').split()[0] =="I":
-#                     self.insertIntoSigKdata("vic.electrical.solar.battCurrent", int(myData.decode('utf8').split()[1]))
-#             except:
-#                 pass
-#             
-#             try:
-#                 if myData.decode('utf8').split()[0] =="VPV":
-#                     self.insertIntoSigKdata("vic.electrical.solar.panelVolts", int(myData.decode('utf8').split()[1])/1000)
-#             except:
-#                 pass
-#             
-#             try:
-#                 if myData.decode('utf8').split()[0] =="CS":
-#                     self.insertIntoSigKdata("vic.electrical.solar.regState", int(myData.decode('utf8').split()[1]))
-#             except:
-#                 pass
-#             
-#             try:
-#                 if myData.decode('utf8').split()[0] =="PPV":
-#                     path = "vic.electrical.solar.panPower"
-#                     value = int(myData.decode('utf8').split()[1])
-#                     self.insertIntoSigKdata(path , value)
-#             except:
-#                 pass
-            
-        self.getPressure()
-        self.getVoltage()
-        self.getCurrent()
-        self.getTemp()
-        
-        
+    def datasend(self):  #which sensors to send, triggered by timer
+        self.flashLed()
+        self.insertIntoSigKdata("esp.heartbeat.led", self.led.value())
+        if self.conf['Run_BME280'] == 'True':
+            self.getPressure('signalk')
+        if self.conf['Run_ADS1115'] == 'True':
+            self.getVoltage()
+        if self.conf['Run_INA-219']== 'True':
+            self.getCurrent()
+        if self.conf['Run_DS18B20']== 'True':
+            self.getTemp()
+        self.checkConnection()

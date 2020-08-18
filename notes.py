@@ -1,4 +1,14 @@
 """notes:
+To Do:
+
+
+EasyEDA
+* 2 x INA219
+* 
+* 
+
+-------------------------------
+Victron mppt solar regulator messages
 PID 0xA04C        -Product ID
 
 FW  130           -Firmware version
@@ -44,5 +54,15 @@ Fault 2
 Bulk 3 
 Absorption 4 
 Float 5 
-Inverting 9 
+Inverting 9
+
+
+
+
+DS18B20 addresses:
+bytearray(b'(\x7f@V\x05\x00\x00\xaf')        alternator                                                                                                         
+bytearray(b"('\xd4V\x05\x00\x00\x88")        exhaust                                                                                                         
+bytearray(b'(a\xdeV\x05\x00\x00\xf2')        head
+
+
 """
