@@ -189,11 +189,11 @@ class sensors:
         
     def getCurrent(self):
         try:
-            self.insertIntoSigKdata("esp.currentSensor.voltage", self.ina.voltage())
+            self.insertIntoSigKdata("fri.currentSensor.voltage", self.ina.voltage())
             self.utime.sleep_ms(100)
-            self.insertIntoSigKdata("esp.currentSensor.current", self.ina.current())
+            self.insertIntoSigKdata("fri.currentSensor.current", self.ina.current())
             self.utime.sleep_ms(100)
-            self.insertIntoSigKdata("esp.currentSensor.power", self.ina.power())
+            self.insertIntoSigKdata("fri.currentSensor.power", self.ina.power())
             
         except Exception as e:
             print('INA1 read failed, Error=',e)
@@ -260,13 +260,13 @@ class sensors:
         
     def datasend(self):  #which sensors to send, triggered by timer
         self.flashLed()
-        self.insertIntoSigKdata("esp.heartbeat.led", self.led.value())
-        if self.conf['Run_BME280'] == 'True':
-            self.getPressure('signalk')
-        if self.conf['Run_ADS1115'] == 'True':
-            self.getVoltage()
+#         self.insertIntoSigKdata("esp.heartbeat.led", self.led.value())
+#         if self.conf['Run_BME280'] == 'True':
+#             self.getPressure('signalk')
+#         if self.conf['Run_ADS1115'] == 'True':
+#             self.getVoltage()
         if self.conf['Run_INA-219']== 'True':
             self.getCurrent()
-        if self.conf['Run_DS18B20']== 'True':
-            self.getTemp()
-        self.checkConnection()
+#         if self.conf['Run_DS18B20']== 'True':
+#             self.getTemp()
+#         self.checkConnection()
