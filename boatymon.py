@@ -5,11 +5,8 @@ import machine
 import ujson
 import utime
 import network
-from ina219 import INA219    
+from ina219 import INA219       
 from logging import INFO        #required by ina219 SS
-import bme280_float             #https://github.com/robert-hh/BME280
-import ads1x15                  #https://github.com/robert-hh/ads1x15
-# import usocket
 
 import onewire, ds18x20
 
@@ -17,9 +14,11 @@ import onewire, ds18x20
 class sensors:
 
     __led = Pin(2, Pin.OUT)      #internal led is on pin 2
-    __D4 = Pin(4, Pin.OUT)      
-    __D5 = Pin(5, Pin.OUT)
-    __D18 = Pin(18, Pin.OUT)
+    p4 = machine.Pin(4)
+    __pwm4 = machine.PWM(p4)
+    __pwm4.freq(5000)
+
+
     
     
     check_wifi_counter = 0
@@ -33,17 +32,19 @@ class sensors:
 #////////////////// INIT /// /////////////////////////
     def __init__(self):
         self.config = config
-        
+        self.inhibit = False
         self.load_i2c()
         self.load_INA()
-#         self.load_BME()
         self.load_ds18b20()
-#         self.load_ads1115()
         self.dbp('new sensors instance created, off we go')
-        self.__D4.value(0)
-        self.__D5.value(0)
-        self.__D18.value(0)
+#         self.__D4.value(0)
+#         self.__D5.value(0)
+#         self.__D18.value(0)
         self.connectWifi()
+        self.dutyCycle = [0] * 7200
+        self.upperLimit = 6
+        self.lowerLimit = 4
+#         print(self.dutyCycle[0])
  
     def dbp(self, message):
         if config["debugPrint"]:
@@ -52,6 +53,7 @@ class sensors:
     def connectWifi(self):
         self.wifi_connect_isRunning = True
         self.sta_if.active(True)
+
         try:
             x = self.sta_if.scan()
             if x is None:
@@ -65,7 +67,7 @@ class sensors:
         if not self.sta_if.isconnected():
             self.dbp('\n\n*****connecting to network...')            
             try:
-                self.sta_if.ifconfig((config["IP_Address"], '255.255.255.0', '192.168.43.78', '192.168.43.78'))
+                self.sta_if.ifconfig((config["IP_Address"], '255.255.255.0', '10.10.10.1', '10.10.10.1'))
                 self.sta_if.connect(config["ssid"], config["password"])
             except Exception as e:
                 message = ('connect wifi failure, error =',e); self.dbp(message)
@@ -98,7 +100,7 @@ class sensors:
         for i in config["ina"]:            
             if config["ina"][i]["enabled"]:
                 try:
-                    SHUNT_OHMS = 0.1     #config["ina"][ina]["shunt_Ohms"]
+                    SHUNT_OHMS = 0.03     #config["ina"][ina]["shunt_Ohms"]
                     self.current_sensors[i] = INA219(SHUNT_OHMS, self.i2c)
                     message = '\n****INA219 instance created', i,  self.current_sensors[i]; self.dbp(message)
                 except Exception as e:
@@ -129,7 +131,7 @@ class sensors:
         for key in self.current_sensors:
             if config["ina"][key]["enabled"]:
                 try:
-                    self.insertIntoSigKdata("esp.inaf.current", self.current_sensors[key].current()*1.6)
+                    self.insertIntoSigKdata("esp.inaf.current", self.current_sensors[key].current())
                     self.insertIntoSigKdata("esp.inaf.voltage", self.current_sensors[key].voltage())
                     self.insertIntoSigKdata("esp.inaf.inputVoltage", self.current_sensors[key].supply_voltage())
                     self.insertIntoSigKdata("esp.inaf.power", self.current_sensors[key].power())
@@ -152,15 +154,26 @@ class sensors:
                     if rom == value:
                         temperature = self.ds.read_temp(rom)
                         self.insertIntoSigKdata(key, temperature + 273.15)
-                        if key == "fridge.ambient.temperature" and temperature > 6:
-                            self.__D5.value(1)
-                        elif key == "fridge.ambient.temperature" and temperature < 4:
-                            self.__D5.value(0)
-            if self.__D4.value()==1 or self.__D5.value()==1 or self.__D18.value()==1:
-                dutyCycle = 1
-            elif self.__D4.value()==0 and self.__D5.value()==0 and self.__D18.value()==0:
-                dutyCycle = 0
-            self.insertIntoSigKdata("fridge.compresser.running", dutyCycle)
+                        if key == "fridge.ambient.temperature" and temperature > self.upperLimit and self.inhibit==False:
+                            self.__pwm4.duty(400)
+                        elif key == "fridge.ambient.temperature" and temperature < self.lowerLimit:
+                            self.__pwm4.duty(0)
+                        if self.inhibit==True:
+                            self.__pwm4.duty(0)
+            if self.__pwm4.duty() > 1:
+                fridgeRunning = 1
+                del self.dutyCycle[7199]
+                self.dutyCycle.insert(0,1)
+                
+            elif self.__pwm4.duty() == 0:
+                fridgeRunning = 0
+                del self.dutyCycle[7199]
+                self.dutyCycle.insert(0,0)
+
+            self.insertIntoSigKdata("fridge.compresser.running", fridgeRunning)
+            total = sum(self.dutyCycle)
+            duty = total/7200
+            self.insertIntoSigKdata("fridge.dutycycle", duty)
                             
                             
 #             print(self.ds.read_temp(rom))                             
@@ -171,10 +184,19 @@ class sensors:
 
     def flashLed(self):
         self.__led.value(not self.__led.value())
-#         self.__D18.value(not self.__D18.value())
+
 
     def checkWifi(self):
         if not self.sta_if.isconnected() and self.check_wifi_counter>6 and self.wifi_connect_isRunning == False:
+            x = self.sta_if.scan()
+            for networks in x:
+                if networks[0] == b'padz':
+                    exists = True
+                else:
+                    exists = False
+            if not exists:
+                return
+            
             for i in range(1,10):
                 self.flashLed()
                 utime.sleep(0.25)
@@ -187,7 +209,7 @@ class sensors:
     def insertIntoSigKdata(self, path, value):
 #         https://wiki.python.org/moin/UdpCommunication
         try:
-            UDP_IP = "192.168.43.93"
+            UDP_IP = "10.10.10.1"
             UDP_PORT = 10119
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             _sigKdata = {"updates": [{"values":[]}]}

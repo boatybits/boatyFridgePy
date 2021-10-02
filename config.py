@@ -1,10 +1,10 @@
 
 config = {
     "esp_Name" : "ESP2",
-    "ssid" : "padz",
-    "password" : "12348765",
+    "ssid" : "openplotter",
+    "password" : "12345678",
     "debugPrint" : True,
-    "IP_Address" : "192.168.43.162",
+    "IP_Address" : "10.10.10.162",
     "ina": {
         "ina1" : {
             "enabled" : True,
