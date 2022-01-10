@@ -9,20 +9,33 @@ import uasyncio as asyncio
 import uos
 from umqtt.simple import MQTTClient
 import ubinascii
-from machine import UART
 
-# uart = UART(1, tx=12, rx=14, timeout=50)
-# uart.init(baudrate=19200,bits=8,parity=None)
-# machine.UART(uart_num, tx=pin, rx=pin, stop=1, invert=UART.INV_TX | UART.INV_RX)
+from time import sleep_ms, ticks_ms 
+from machine import I2C, Pin 
+from i2c_lcd import I2cLcd             # https://techtotinker.blogspot.com/2021/01/008-micropython-technotes-16x2-lcd.html
 
-loop = asyncio.get_event_loop() 
-mySensors = boatymon.sensors()
+DEFAULT_I2C_ADDR = 0x27
+machine.freq(80000000)
+# i2c = I2C(scl=Pin(22), sda=Pin(21), freq=400000) 
+sleep_ms(10000)
+
+try:
+    loop = asyncio.get_event_loop() 
+    mySensors = boatymon.sensors()
+    print(mySensors)
+except Exception as e:
+    print('create sensors objecy error =',e)
+    pass
+
+try:
+    lcd = I2cLcd(mySensors.i2c, DEFAULT_I2C_ADDR, 4, 20)
+    lcd.clear()
+except Exception as e:
+    print('Call LCD error =',e)
+    pass
+    
 client_id = ubinascii.hexlify(machine.unique_id())
 client = MQTTClient(client_id, '10.10.10.1')
-# p4 = machine.Pin(4)
-# pwm4 = machine.PWM(p4)
-# pwm4.freq(5000)
-# pwm4 = PWM(Pin(), freq=20000, duty=512)
 
 def mqtt_sub_cb(topic, msg):
     msgDecoded = msg.decode("utf-8")
@@ -38,49 +51,28 @@ def mqtt_sub_cb(topic, msg):
             print("mySensor.inhibit = ", mySensors.inhibit)
             mess = "Inhibit = " + str(mySensors.inhibit)
             client.publish("ESP_LOG",mess)
-# 
-# 
     if topicDecoded == 'fromPiToEsp':
-#         pwm = int(msgDecoded)
-#         pwm4.duty(pwm)
-#         print(pwm4.freq())
-#         mySensors.__D4.value(1)
         if msgDecoded == "config":
             message = ""
             for key, value in mySensors.config.items():
-#                 print(key, ' : ', value)
                 message = message + key + ":" + str(value) + "\n"
             message = message + "Upper Limit = " + str(mySensors.upperLimit) + "\n"
             message = message + "Lower Limit Limit = " + str(mySensors.lowerLimit) + "\n" + "check"
             client.publish("ESP_LOG", message)
             print(message)
             
-
-#     if msgDecoded == "4on":
-#         mySensors.__D4.value(1)
-#     if msgDecoded == "4off":
-#         mySensors.__D4.value(0)
-#     if msgDecoded == "5on":
-#         mySensors.__D5.value(1)
-#     if msgDecoded == "5off":
-#         mySensors.__D5.value(0)
-#     if msgDecoded == "18on":
-#         mySensors.__D18.value(1)
-#     if msgDecoded == "18off":
-#         mySensors.__D18.value(0)
-
 client.set_callback(mqtt_sub_cb)
     
-try:
-    client.connect()
-    client.subscribe('fromPiToEsp')
-    client.subscribe('inhibit')
-    utime.sleep(0.25)
-    client.publish("ESP_LOG","client connected and subscribed, MQTT callback set")
-    print('       client connected and subscribed, MQTT callback set')
-except Exception as e:
-    print("mqtt connect error",e)
-    pass
+# try:
+#     client.connect()
+#     client.subscribe('fromPiToEsp')
+#     client.subscribe('inhibit')
+#     utime.sleep(0.25)
+#     client.publish("ESP_LOG","client connected and subscribed, MQTT callback set")
+#     print('       client connected and subscribed, MQTT callback set')
+# except Exception as e:
+#     print("mqtt connect error",e)
+#     pass
 
 async def call_sensors():
     while True:
@@ -91,14 +83,18 @@ async def call_sensors():
 #             mySensors.getPressure()
             mySensors.checkWifi()
 #             mySensors.getVoltage()
+#             print("active = ", mySensors.sta_if.active())
+            lcd.move_to(0, 0)
+            lcd.putstr("D%=" + mySensors.data["duty"] + "%")
+#             print(mySensors.data["duty"])
         except Exception as e:
             print('Call Sensors routine error =',e)
             pass
-        try:    
-            client.check_msg()    
-        except Exception as e:
-            print('MQTT error =',e)
-            pass
+#         try:    
+#             client.check_msg()    
+#         except Exception as e:
+#             print('MQTT error =',e)
+#             pass
         await asyncio.sleep(1)
 
 # async def fast_loop():
