@@ -46,7 +46,6 @@ def loadLCD(text, row, col):
         pass
 loadLCD("loaded", 0, 0)
 
-# lcd.putstr("LCD 2loaded")
 i = 0 
 async def call_sensors():
 
