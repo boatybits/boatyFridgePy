@@ -26,7 +26,6 @@ DEFAULT_I2C_ADDR = 0x27
 # i2c = I2C(scl=Pin(22), sda=Pin(21), freq=400000) 
 utime.sleep(1)
 
-
 lcd = I2cLcd(mySensors.i2c, DEFAULT_I2C_ADDR, 4, 20)
 
 def is_float(string):
@@ -81,53 +80,53 @@ async def call_sensors():
             print('Call Sensors routine error first =',e)
             pass
         
-        try:
+        # try:
 #             url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/forfridge"
 #             response = urequests.get(url)
 #             print(response.text)
-            url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/electrical/batteries/shunt/current/value/"
-            response = urequests.get(url)
-            value = round(float(response.text), 1)
-            message = str(value) + "A"
-            message = "{:<10}".format(message)
+            # url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/electrical/batteries/shunt/current/value/"
+            # response = urequests.get(url)
+            # value = round(float(response.text), 1)
+            # message = str(value) + "A"
+            # message = "{:<10}".format(message)
 #             url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/environment/wind/directionTrueText/value/"
 #             response = urequests.get(url)
 #             value = str(response.text)
 #             message = message + value
-            message = "{:<20}".format(message)
+            # message = "{:<20}".format(message)
 # #             print("mess (0,1) =", message)
-            loadLCD(message, 0, 1)
+            # loadLCD(message, 0, 1)
 # #             
-            url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/electrical/batteries/shunt/capacity/stateOfCharge/value/"
-            response = urequests.get(url)
-            value = round(float(response.text)*100, 1)
-            message = str(value) + "%   "
-            message = "{:<10}".format(message)
+            # url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/electrical/batteries/shunt/capacity/stateOfCharge/value/"
+            # response = urequests.get(url)
+            # value = round(float(response.text)*100, 1)
+            # message = str(value) + "%   "
+            # message = "{:<10}".format(message)
 #             url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/navigation/speedOverGround/value"
 #             response = urequests.get(url)
 #             value = round((float(response.text))*1.92, 1)
 #             message = message + str(value) + "Kts"
-            message = "{:<20}".format(message)
+            # message = "{:<20}".format(message)
 # #             print("mess (0,2) =", message)
-            loadLCD(message, 0, 2)
+            # loadLCD(message, 0, 2)
 # #             
 #             url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/environment/outside/temperature/value"
 #             response = urequests.get(url)
 #             value = float(response.text) - 273.15
 #             message = str(value) + "C   "
 #             message = "{:<10}".format(message)
-            url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/electrical/batteries/shunt/voltage/value"
-            response = urequests.get(url)
+            # url = "http://10.42.0.1:3000/signalk/v1/api/vessels/urn:mrn:imo:mmsi:235090919/electrical/batteries/shunt/voltage/value"
+            # response = urequests.get(url)
 # #             print("requests = ", response.text)
 #             if response.text=="":
 #                 print("cog returned = null")
-            value = round((float(response.text)), 3)
-            message = message + str(value) + "V"
-            message = "{:<20}".format(message)
-            loadLCD(message, 0, 3)
-        except Exception as e:
-            print('Call Sensors routine 2nd error =',e)
-            pass
+            # value = round((float(response.text)), 3)
+            # message = message + str(value) + "V"
+            # message = "{:<20}".format(message)
+            # loadLCD(message, 0, 3)
+        # except Exception as e:
+        #     print('Call Sensors routine 2nd error =',e)
+        #     pass
 #         try:    
 #             client.check_msg()
 #         except Exception as e:
