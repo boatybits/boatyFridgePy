@@ -55,6 +55,7 @@ class sensors:
         self.lowerLimit = 6
         self.__pwm4.duty(0)
         self.ambientTemp = 0
+        self.line1Col2 = "orig"
 #         self.lcd = I2cLcd(mySensors.i2c, DEFAULT_I2C_ADDR, 4, 20)
 #         print(self.dutyCycle[0])
  
@@ -70,18 +71,31 @@ class sensors:
             return
         networks = self.sta_if.scan()
         for network in networks:
-            print("networks:", network)
+            print("From check_wifi - networks:", network)
+            print (f"{network[0].decode()}   {config["ssid"]}")
             if network[0].decode() == config["ssid"]:
+                print (f"{network[0].decode()}   {config["ssid"]}")
                 self.connect_to_wifi()
                 return
         print("Network not found")
         return
         
     def connect_to_wifi(self):
+        netcheck = False
+        networks = self.sta_if.scan()
+        for network in networks:
+            print("networks:", network)
+            if network[0].decode() == config["ssid"]:
+                netcheck = True
+                print (f"netcheck = {netcheck} , config ssid =   {config["ssid"]}")
+        if netcheck == False:
+                return
+        self.sta_if.active(False)
         self.sta_if.active(True)
         self.sta_if.ifconfig(('10.42.0.162', '255.255.255.0', '10.42.0.1', '10.42.0.1'))
         self.sta_if.connect(config["ssid"], config["password"])
         while not self.sta_if.isconnected():
+            
             print("Connecting to network...")
             utime.sleep(1)
 
@@ -161,12 +175,12 @@ class sensors:
         if self.inhibit > 0:
             self.inhibit = self.inhibit -1
             print("Temperature inhibit active")
-        print("Temperature inhibit variable = ", self.inhibit)
+            print("Temperature inhibit variable = ", self.inhibit)
          
         try:
             self.roms = self.ds.scan()
             self.ds.convert_temp()
-            utime.sleep_ms(750)
+            utime.sleep_ms(50)
             for rom in (self.roms):
                 for key, value in config["ds18b20"]["devices"].items():
                     if rom == value:

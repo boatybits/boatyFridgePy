@@ -24,7 +24,7 @@ mySensors = boatymon.sensors()
 DEFAULT_I2C_ADDR = 0x27
 #machine.freq(80000000)
 # i2c = I2C(scl=Pin(22), sda=Pin(21), freq=400000) 
-utime.sleep(1)
+utime.sleep(0.1)
 
 lcd = I2cLcd(mySensors.i2c, DEFAULT_I2C_ADDR, 4, 20)
 
@@ -57,7 +57,7 @@ async def call_sensors():
             mySensors.check_wifi()
             mySensors.flashLed()       
             mySensors.getTemp()
-            mySensors.getCurrent()
+            #mySensors.getCurrent()
             #lcd.clear()
             message = mySensors.ambientTemp + "C "
             
