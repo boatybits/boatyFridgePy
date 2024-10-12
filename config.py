@@ -4,12 +4,12 @@ config = {
     "ssid" : "openplotter",
     "password" : "12345678",
     "debugPrint" : True,
-    "IP_Address" : "10.10.10.162",
+    "IP_Address" : "10.10.10.160",
     "ina": {
         "ina1" : {
             "enabled" : True,
             "addr" : "ox40",
-            "shunt_Ohms" : "0.06"
+            "shunt_Ohms" : "0.1"
             },
         "ina2" : {
             "enabled" : False,
@@ -22,9 +22,9 @@ config = {
             "enabled" : True,
             "devices" : {
                 "spare1" : bytearray(b'(\xf77V\x05\x00\x00\xd8'),
-                "fridge.compressor.temperature" : bytearray(b'(\xdb\xa1F\x05\x00\x00\x00'),
-                "fridge.ambient.temperature" : bytearray(b'(\xa0\xa4V\x05\x00\x00\x8a'),
-                "fridge.plate.temperature" : bytearray(b'(\x99\x11V\x05\x00\x00l'),
+                "propulsion.alternator.temperature" : bytearray(b'(\x7f@V\x05\x00\x00\xaf'),
+                "propulsion.exhaust.temperature" : bytearray(b"('\xd4V\x05\x00\x00\x88"),
+                "propulsion.head.temperature" : bytearray(b'(a\xdeV\x05\x00\x00\xf2'),
                 "electrical.batteries.housebank.temperature" : bytearray(b'(\xdd\xdfU\x05\x00\x00\xcd')                
                 }
         }
